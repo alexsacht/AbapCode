@@ -1,0 +1,207 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZWMR_CORRIGE_SALDO_OP_WM_CLS
+*&---------------------------------------------------------------------*
+
+CLASS lcl_functions IMPLEMENTATION.
+
+  METHOD mtd_check_input_lgort.
+
+    SELECT SINGLE lgnum
+    FROM t320
+    INTO gv_lgnum
+    WHERE lgort = p_lgort.
+
+    IF sy-subrc IS NOT INITIAL.
+      MESSAGE text-100 TYPE 'S' DISPLAY LIKE 'E'. "Depósito não é WM
+      LEAVE TO SCREEN 0.
+    ENDIF.
+
+  ENDMETHOD.                    "check_Input_fields
+
+  METHOD mtd_get_saldo_aufnr.
+
+    SELECT matnr
+           werks
+           lgort
+           letyp
+           verme
+           meins
+           charg
+           lenum
+           lgtyp
+           lgpla
+           verme
+      FROM lqua
+      INTO TABLE gt_lqua_nec
+      WHERE lgnum =  gv_lgnum
+        AND lgort = p_lgort
+        AND lgpla IN s_aufnr
+        AND verme < 0. "Busca negativo
+
+    IF sy-subrc IS NOT INITIAL.
+      MESSAGE text-101 TYPE 'S' DISPLAY LIKE 'E'. "OP não possui saldo negativo
+      LEAVE TO SCREEN 0.
+    ENDIF.
+
+    SELECT matnr
+           werks
+           lgort
+           letyp
+           verme
+           meins
+           charg
+           lenum
+           lgtyp
+           lgpla
+           verme
+      FROM lqua
+      INTO TABLE gt_lqua_disp
+      FOR ALL ENTRIES IN gt_lqua_nec
+      WHERE matnr = gt_lqua_nec-matnr
+        AND charg = gt_lqua_nec-charg
+        AND lgnum = gv_lgnum
+        AND lgort = p_lgort
+        AND lgpla <> '916'
+        AND verme > 0. "Busca negativo
+
+    IF sy-subrc IS NOT INITIAL.
+      MESSAGE text-102 TYPE 'S' DISPLAY LIKE 'E'. "Sem saldo positivo para corrigir op
+      LEAVE TO SCREEN 0.
+    ENDIF.
+
+  ENDMETHOD. "mtd_get_saldo_aufnr
+
+  METHOD mtd_process_saldo.
+
+    DATA: lv_num_aux TYPE i.
+
+    lv_num_aux = -1.
+
+    FIELD-SYMBOLS <fs_lqua>      TYPE ty_lqua.
+    FIELD-SYMBOLS <fs_lqua_disp> TYPE ty_lqua.
+
+    LOOP AT gt_lqua_nec ASSIGNING <fs_lqua>.
+      <fs_lqua>-verme_pend = <fs_lqua>-verme_pend * lv_num_aux . "Deixar numero positivo
+
+      READ TABLE gt_lqua_disp TRANSPORTING NO FIELDS WITH KEY matnr = <fs_lqua>-matnr
+                                                              charg = <fs_lqua>-charg.
+      IF sy-subrc IS INITIAL.
+        lv_tabix = sy-tabix.
+
+        DO.                                              "#EC CI_NESTED
+          READ TABLE gt_lqua_disp ASSIGNING <fs_lqua_disp> INDEX lv_tabix.
+          IF sy-subrc IS NOT INITIAL.
+            EXIT.
+          ENDIF.
+          IF <fs_lqua_disp>-matnr <> <fs_lqua>-matnr OR <fs_lqua_disp>-charg <> <fs_lqua>-charg
+            OR <fs_lqua_disp>-verme_pend = 0.
+            EXIT.
+          ENDIF.
+
+          ls_ltap_creat-matnr    =  <fs_lqua>-matnr.             "Material
+          ls_ltap_creat-werks    =  <fs_lqua>-werks.             "Centro
+          ls_ltap_creat-lgort    =   p_lgort.                    "Deposito
+          ls_ltap_creat-altme    =  <fs_lqua>-meins.             "Unidade de medida
+          ls_ltap_creat-squit    =  'X'.                         "Confirmar OT
+          ls_ltap_creat-vltyp    =  <fs_lqua_disp>-lgtyp.        "Tipo de deposito origem
+          ls_ltap_creat-vlpla    =  <fs_lqua_disp>-lgpla.        "Posição de deposito origem
+          ls_ltap_creat-vlenr    =  <fs_lqua_disp>-lenum.        "UD destino
+          ls_ltap_creat-charg    =  <fs_lqua>-charg.             "Lote
+          ls_ltap_creat-nltyp    =  <fs_lqua>-lgtyp.             "Tipo de deposito destino
+          ls_ltap_creat-nlpla    =  <fs_lqua>-lgpla.             "Posição de deposito destino
+*
+*      ls_ltap_creat-letyp    =  gv_letyp.                         "E1
+
+          IF <fs_lqua_disp>-verme_pend >= <fs_lqua>-verme_pend.
+
+            ls_ltap_creat-anfme    =  <fs_lqua>-verme_pend.             "Quantidade
+
+            <fs_lqua_disp>-verme_pend = <fs_lqua_disp>-verme_pend - <fs_lqua>-verme_pend.
+            <fs_lqua>-verme_pend = 0.
+
+          ELSE.
+            ls_ltap_creat-anfme = <fs_lqua_disp>-verme_pend.
+
+            <fs_lqua>-verme_pend = <fs_lqua>-verme_pend - <fs_lqua_disp>-verme_pend.
+
+            <fs_lqua_disp>-verme_pend = 0.
+
+          ENDIF.
+
+          APPEND ls_ltap_creat          TO lt_ltap_creat.
+
+          ADD 1 TO lv_tabix.
+
+        ENDDO.
+
+      ENDIF.
+
+    ENDLOOP.
+
+
+  ENDMETHOD. "mtd_process_saldo
+
+  METHOD mtd_call_bapi.
+
+    CALL FUNCTION 'L_TO_CREATE_MULTIPLE'
+      EXPORTING
+        i_lgnum                = gv_lgnum
+*       i_lgnum                = gv_lgnum_usu
+        i_bwlvs                = '999'
+        i_commit_work          = 'X'
+        i_bname                = sy-uname
+      IMPORTING
+        e_tanum                = lv_tanum
+      TABLES
+        t_ltap_creat           = lt_ltap_creat
+      EXCEPTIONS
+        no_to_created          = 1
+        bwlvs_wrong            = 2
+        betyp_wrong            = 3
+        benum_missing          = 4
+        betyp_missing          = 5
+        foreign_lock           = 6
+        vltyp_wrong            = 7
+        vlpla_wrong            = 8
+        vltyp_missing          = 9
+        nltyp_wrong            = 10
+        nlpla_wrong            = 11
+        nltyp_missing          = 12
+        rltyp_wrong            = 13
+        rlpla_wrong            = 14
+        rltyp_missing          = 15
+        squit_forbidden        = 16
+        manual_to_forbidden    = 17
+        letyp_wrong            = 18
+        vlpla_missing          = 19
+        nlpla_missing          = 20
+        sobkz_wrong            = 21
+        sobkz_missing          = 22
+        sonum_missing          = 23
+        bestq_wrong            = 24
+        lgber_wrong            = 25
+        xfeld_wrong            = 26
+        date_wrong             = 27
+        drukz_wrong            = 28
+        ldest_wrong            = 29
+        update_without_commit  = 30
+        no_authority           = 31
+        material_not_found     = 32
+        lenum_wrong            = 33
+        matnr_missing          = 34
+        werks_missing          = 35
+        anfme_missing          = 36
+        altme_missing          = 37
+        lgort_wrong_or_missing = 38
+        OTHERS                 = 39.
+    IF sy-subrc <> 0.
+      MESSAGE text-103 TYPE 'S' DISPLAY LIKE 'E'. "Erro ao gerar OT
+      ROLLBACK WORK.
+      LEAVE TO SCREEN 0.
+    ELSE.
+      COMMIT WORK.
+    ENDIF.
+  ENDMETHOD."mtd_call_bapi
+
+
+ENDCLASS.                    "lcl_functions IMPLEMENTATION

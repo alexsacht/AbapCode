@@ -1,0 +1,31 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZWMR_CORRIGE_SALDO_OP_WM_CLS_D
+*&---------------------------------------------------------------------*
+
+*----------------------------------------------------------------------*
+*       CLASS cl_functions DEFINITION
+*----------------------------------------------------------------------*
+CLASS lcl_functions DEFINITION.
+
+  PUBLIC SECTION.
+
+    DATA:
+          lt_ltap_creat TYPE TABLE OF ltap_creat.
+
+    DATA: ls_lqua_disp TYPE ty_lqua,
+          ls_ltap_creat TYPE ltap_creat.
+
+
+    DATA: lv_tabix     TYPE sy-tabix,
+          lv_tanum               TYPE ltap-tanum.
+
+    METHODS:
+          mtd_check_input_lgort,
+
+          mtd_get_saldo_aufnr,
+
+          mtd_process_saldo,
+
+          mtd_call_bapi.
+
+ENDCLASS.                    "cl_functions DEFINITION

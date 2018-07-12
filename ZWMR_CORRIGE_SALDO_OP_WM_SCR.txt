@@ -1,0 +1,18 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZWMR_CORRIGE_SALDO_OP_WM_SCR
+*&--------------------------------------------------------------
+SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE text-001.
+
+SELECTION-SCREEN SKIP.
+
+PARAMETERS p_lgort TYPE lqua-lgort OBLIGATORY.
+
+SELECTION-SCREEN SKIP.
+
+SELECT-OPTIONS s_aufnr FOR lqua-lgpla OBLIGATORY NO INTERVALS.
+
+SELECTION-SCREEN END OF BLOCK b01.
+
+START-OF-SELECTION.
+
+  CALL SCREEN 9000.

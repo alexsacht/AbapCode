@@ -1,0 +1,35 @@
+*&---------------------------------------------------------------------*
+*& Include ZWMR_CORRIGE_SALDO_OP_WM_TOP                      Report ZWMR_CORRIGE_SALDO_OP_WM
+*&
+*&---------------------------------------------------------------------*
+
+REPORT zwmr_corrige_saldo_op_wm.
+
+TABLES: lqua.
+
+TYPES: BEGIN OF ty_lqua,
+         matnr TYPE lqua-matnr,
+         werks TYPE lqua-werks,
+         lgort TYPE lqua-lgort,
+         letyp TYPE lqua-letyp,
+         verme TYPE lqua-verme,
+         meins TYPE lqua-meins,
+         charg TYPE lqua-charg,
+         lenum TYPE lqua-lenum,
+         lgtyp TYPE lqua-lgtyp,
+         lgpla TYPE lqua-lgpla,
+         verme_pend TYPE lqua-verme,
+         END OF ty_lqua.
+
+DATA: gt_lqua_nec  TYPE TABLE OF ty_lqua.
+DATA: gt_lqua_disp TYPE SORTED TABLE OF ty_lqua WITH NON-UNIQUE KEY matnr charg .
+
+DATA: gv_lgnum TYPE lqua-lgnum.
+
+CLASS:
+
+lcl_functions  DEFINITION DEFERRED.
+
+DATA:
+
+o_function     TYPE REF TO lcl_functions.

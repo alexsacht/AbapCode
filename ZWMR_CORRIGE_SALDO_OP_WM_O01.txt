@@ -1,0 +1,31 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZWMR_CORRIGE_SALDO_OP_WM_O01
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_9000  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+MODULE status_9000 OUTPUT.
+*  SET PF-STATUS 'xxxxxxxx'.
+*  SET TITLEBAR 'xxx'.
+
+  IF o_function IS NOT BOUND.
+
+    CREATE OBJECT o_function.
+
+  ENDIF.
+
+  o_function->mtd_check_input_lgort( ).
+
+  o_function->mtd_get_saldo_aufnr( ).
+
+  o_function->mtd_process_saldo( ).
+
+  o_function->mtd_call_bapi( ).
+
+  MESSAGE text-104 TYPE 'S'. "Sucesso
+
+  LEAVE TO SCREEN 0.
+
+ENDMODULE.                 " STATUS_9000  OUTPUT
